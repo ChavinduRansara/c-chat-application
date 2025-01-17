@@ -20,6 +20,10 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table(name = "chat")
+@NamedQuery(name = ChatConstants.FIND_CHAT_BY_SENDER_ID,
+        query = "SELECT DISTINCT c FROM Chat c WHERE c.sender.id = :senderId OR c.recipient.id = :senderId ORDER BY createdDate DESC ")
+@NamedQuery(name = ChatConstants.FIND_CHAT_BY_SENDER_ID_AND_RECEIVER_ID,
+query = "SELECT DISTINCT c FROM Chat c WHERE (c.sender.id = :senderId AND c.recipient.id =: recipientId) OR (c.sender.id = :recipientId AND c.recipient.id =: senderId)")
 public class Chat extends BaseAuditingEntity {
 
     @Id
@@ -39,8 +43,8 @@ public class Chat extends BaseAuditingEntity {
     private List<Message> messages;
 
     @Transient
-    public String getChatName(final String senderId){
-        if(recipient.getId().equals(senderId)){
+    public String getChatName(final String senderId) {
+        if (recipient.getId().equals(senderId)) {
             return sender.getFirstName() + " " + sender.getLastName();
         }
 
@@ -48,18 +52,18 @@ public class Chat extends BaseAuditingEntity {
     }
 
     @Transient
-    public long getUnreadMessageCount(final String senderId){
+    public long getUnreadMessageCount(final String senderId) {
         return messages
                 .stream()
-                .filter(m-> m.getReceiverId().equals(senderId))
-                .filter(m-> MessageState.SENT == m.getState())
+                .filter(m -> m.getReceiverId().equals(senderId))
+                .filter(m -> MessageState.SENT == m.getState())
                 .count();
     }
 
     @Transient
-    public String getLastMessage(){
-        if(messages != null && !messages.isEmpty()){
-            if(messages.get(0).getType() != MessageType.TEXT){
+    public String getLastMessage() {
+        if (messages != null && !messages.isEmpty()) {
+            if (messages.get(0).getType() != MessageType.TEXT) {
                 return "Attachment";
             }
             return messages.get(0).getContent();
@@ -68,8 +72,8 @@ public class Chat extends BaseAuditingEntity {
     }
 
     @Transient
-    public LocalDateTime getLastMessageTime(){
-        if(messages != null && !messages.isEmpty()){
+    public LocalDateTime getLastMessageTime() {
+        if (messages != null && !messages.isEmpty()) {
             return messages.get(0).getCreatedDate();
         }
         return null;
