@@ -16,7 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 @NamedQuery(name = UserConstants.FIND_USER_BY_EMAIL,
         query = "SELECT u FROM User u WHERE u.email = :email")
 @NamedQuery(name = UserConstants.FIND_ALL_USERS_EXPECT_SELF,
