@@ -6,12 +6,19 @@ import {KeycloakService} from "../../../utils/keycloak/keycloak.service";
 import {MessageService} from "../../../services/services/message.service";
 import {MessageResponse} from "../../../services/models/message-response";
 import {DatePipe} from "@angular/common";
+import {uploadMedia} from "../../../services/fn/message/upload-media";
+import {PickerComponent} from "@ctrl/ngx-emoji-mart";
+import {FormsModule} from "@angular/forms";
+import {EmojiData} from "@ctrl/ngx-emoji-mart/ngx-emoji";
+import {MessageRequest} from "../../../services/models/message-request";
 
 @Component({
   selector: 'app-main',
   imports: [
     ChatListComponent,
-    DatePipe
+    DatePipe,
+    PickerComponent,
+    FormsModule
   ],
   templateUrl: './main.component.html',
   styleUrl: './main.component.scss'
@@ -21,6 +28,8 @@ export class MainComponent implements OnInit{
   chats: Array<ChatResponse> = [];
   selectedChat: ChatResponse = {};
   chatMessages: MessageResponse[] = [];
+  showEmojis = false;
+  messageContent = '';
 
   constructor(
     private chatService: ChatService,
@@ -68,10 +77,77 @@ export class MainComponent implements OnInit{
   }
 
   private setMessagesToSeen() {
-
+    this.messageService.setMessageToSeen({
+      'chat-id': this.selectedChat.id as string
+    }).subscribe({
+      next:() => {}
+    });
   }
 
   isSelfMessage(message: MessageResponse) {
     return message.senderId === this.keycloakService.userId;
+  }
+
+  uploadMedia(target: EventTarget | null) {
+
+  }
+
+  onSelectEmojis(selectedEmoji : any) {
+    const emoji: EmojiData = selectedEmoji.emoji;
+    this.messageContent += emoji.native;
+  }
+
+  keyDown(event: KeyboardEvent) {
+    if(event.key === 'Enter'){
+      this.sendMessage();
+    }
+  }
+
+  onClick() {
+    this.setMessagesToSeen()
+  }
+
+  sendMessage() {
+    if (this.messageContent){
+      const messageRequest: MessageRequest = {
+        chatId: this.selectedChat.id,
+        senderId: this.getSenderId(),
+        receiverId: this.getReceiverId(),
+        content: this.messageContent,
+        type: 'TEXT'
+      };
+      this.messageService.saveMessage({
+        body:messageRequest
+      }).subscribe({
+        next: ()=>{
+          const messageResponse : MessageResponse = {
+            senderId: this.getSenderId(),
+            receiverId: this.getReceiverId(),
+            content: this.messageContent,
+            type: "TEXT",
+            state: "SENT",
+            createdAt: new Date().toString()
+          };
+          this.selectedChat.lastMessage = this.messageContent;
+          this.chatMessages.push(messageResponse);
+          this.messageContent = '';
+          this.showEmojis = false;
+        }
+      })
+    }
+  }
+
+  private getSenderId() : string {
+    if(this.selectedChat.senderId === this.keycloakService.userId){
+      return this.selectedChat.senderId as string
+    }
+    return this.selectedChat.recipientId as string;
+  }
+
+  private getReceiverId() {
+    if(this.selectedChat.senderId === this.keycloakService.userId){
+      return this.selectedChat.recipientId as string
+    }
+    return this.selectedChat.senderId as string;
   }
 }
