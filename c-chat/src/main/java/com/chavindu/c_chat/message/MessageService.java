@@ -48,7 +48,7 @@ public class MessageService {
                 .senderId(messageRequest.getSenderId())
                 .receiverId(messageRequest.getReceiverId())
                 .notificationType(NotificationType.MESSAGE)
-                .chatName(chat.getChatName(message.getSenderId()))
+                .chatName(chat.getTargetChatName(message.getSenderId()))
                 .build();
 
         notificationService.sendNotification(messageRequest.getReceiverId(), notification);
@@ -104,7 +104,6 @@ public class MessageService {
                 .senderId(senderId)
                 .receiverId(receiverId)
                 .notificationType(NotificationType.IMAGE)
-                .chatName(chat.getChatName(message.getSenderId()))
                 .media(FileUtils.readFileFromLocation(filePath))
                 .build();
 
