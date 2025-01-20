@@ -1,4 +1,4 @@
-import {Component, OnDestroy, OnInit} from '@angular/core';
+import {AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {ChatListComponent} from "../../chat-list/chat-list.component";
 import {ChatResponse} from "../../../services/models/chat-response";
 import {ChatService} from "../../../services/services/chat.service";
@@ -25,7 +25,7 @@ import {Notification} from "./notification";
   templateUrl: './main.component.html',
   styleUrl: './main.component.scss'
 })
-export class MainComponent implements OnInit, OnDestroy{
+export class MainComponent implements OnInit, OnDestroy, AfterViewChecked{
 
   chats: Array<ChatResponse> = [];
   selectedChat: ChatResponse = {};
@@ -33,13 +33,19 @@ export class MainComponent implements OnInit, OnDestroy{
   showEmojis = false;
   messageContent = '';
   socketClient: any = null;
-  private notificationSubscription : any;
+  notificationSubscription : any;
+
+  @ViewChild('scrollableDiv') scrollableDiv!: ElementRef<HTMLDivElement>;
 
   constructor(
     private chatService: ChatService,
     private keycloakService: KeycloakService,
     private messageService: MessageService
   ) {}
+
+  ngAfterViewChecked(): void {
+        this.scrollBottom();
+    }
 
   ngOnDestroy(): void {
     if(this.socketClient !== null){
@@ -101,7 +107,35 @@ export class MainComponent implements OnInit, OnDestroy{
   }
 
   uploadMedia(target: EventTarget | null) {
-
+    const file = this.extractFileFromTarget(target);
+    if(file !== null){
+      const reader = new FileReader();
+      reader.onload = () => {
+        if(reader.result){
+          const mediaLines = reader.result.toString().split(',')[1];
+          this.messageService.uploadMedia({
+            "chat-id": this.selectedChat.id as string,
+            body:{
+              file: file
+            }
+          }).subscribe({
+            next:()=>{
+              const message: MessageResponse = {
+                senderId: this.getSenderId(),
+                receiverId: this.getReceiverId(),
+                content: 'Attachment',
+                type: 'IMAGE',
+                state: 'SENT',
+                media: new Array<string>(mediaLines),
+                createdAt: new Date().toString()
+              };
+              this.chatMessages.push(message);
+            }
+          });
+        }
+      }
+      reader.readAsDataURL(file);
+    }
   }
 
   onSelectEmojis(selectedEmoji : any) {
@@ -185,7 +219,7 @@ export class MainComponent implements OnInit, OnDestroy{
   private handleNotification(notification: Notification) {
     if(!notification) return;
     if(this.selectedChat && this.selectedChat.id === notification.chatId){
-      switch (notification.type){
+      switch (notification.notificationType){
         case 'MESSAGE':
         case 'IMAGE':
           const message: MessageResponse = {
@@ -196,7 +230,7 @@ export class MainComponent implements OnInit, OnDestroy{
             media: notification.media,
             createdAt: new Date().toString()
           };
-          if(notification.type === 'IMAGE'){
+          if(notification.notificationType === 'IMAGE'){
             this.selectedChat.lastMessage = 'Attachment';
           } else{
             this.selectedChat.lastMessage = notification.content;
@@ -209,15 +243,15 @@ export class MainComponent implements OnInit, OnDestroy{
       }
     } else {
       const destChat = this.chats.find(c=> c.id === notification.chatId)
-      if(destChat && notification.type !== 'SEEN'){
-        if(notification.type === 'MESSAGE'){
+      if(destChat && notification.notificationType !== 'SEEN'){
+        if(notification.notificationType === 'MESSAGE'){
           destChat.lastMessage = notification.content;
-        } else if (notification.type === 'IMAGE'){
+        } else if (notification.notificationType === 'IMAGE'){
           destChat.lastMessage = 'Attachment';
         }
         destChat.lastMessageTime = new Date().toString();
         destChat.unreadCount! += 1;
-      } else if(notification.type === 'MESSAGE'){
+      } else if(notification.notificationType === 'MESSAGE'){
         const newChat: ChatResponse = {
           id: notification.chatId,
           senderId: notification.senderId,
@@ -229,6 +263,21 @@ export class MainComponent implements OnInit, OnDestroy{
         }
         this.chats.unshift(newChat);
       }
+    }
+  }
+
+  private extractFileFromTarget(target: EventTarget | null): File | null {
+    const htmlInputTarget = target as HTMLInputElement;
+    if(target === null || htmlInputTarget.files === null){
+      return null;
+    }
+    return htmlInputTarget.files[0];
+  }
+
+  private scrollBottom() {
+    if(this.scrollableDiv){
+      const div = this.scrollableDiv.nativeElement;
+      div.scrollTop = div.scrollHeight;
     }
   }
 }
